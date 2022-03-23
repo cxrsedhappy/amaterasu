@@ -1,6 +1,3 @@
-#  Created by Stanislav Pashkov
-#  Timestamp: 23.03.2022
-
 import os
 import asyncio
 import discord

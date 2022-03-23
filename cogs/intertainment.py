@@ -1,9 +1,10 @@
 import discord
 
 from typing import Literal
+from data.db_session import create_session
+from data.user_role import Member
 from discord import app_commands, ui
 from discord.ext import commands
-
 
 COLOUR = 0x242424
 
@@ -27,16 +28,18 @@ class MyView(ui.View):
 
 
 class profileView(ui.View):
-    def __init__(self, ctx: discord.Interaction):
+    def __init__(self, ctx: discord.Interaction, query):
         super().__init__()
         self.ctx = ctx
+        self.query = query
 
     @discord.ui.button(label='General', style=discord.ButtonStyle.gray, custom_id='generalButton')
     async def general_button_callback(self, button: discord.ui.Button, interaction: discord.Interaction):
         emb = discord.Embed(colour=COLOUR)
-        emb.add_field(name='Coins           ⠀', value='**500**', inline=True)
-        emb.add_field(name='Reputation      ⠀', value='25', inline=True)
-        emb.add_field(name='Information     ⠀', value='Level: 34\nJoined: 29.10.24', inline=True)
+        join_time = interaction.user.joined_at.strftime("%a, %b %d, %Y @ %I:%M %p")
+        emb.add_field(name='Coins           ⠀', value=f'**{self.query.coins}**', inline=True)
+        emb.add_field(name='Reputation      ⠀', value=f'{self.query.reputation}', inline=True)
+        emb.add_field(name='Information     ⠀', value=f'Level: 34\n{join_time}', inline=True)
         emb.set_author(name=self.ctx.user, icon_url=self.ctx.user.avatar)
         await interaction.response.edit_message(embed=emb)
 
@@ -61,6 +64,7 @@ class profileView(ui.View):
 class newAlertModalFloorAlert(ui.Modal, title='Enter collection slug'):
     def __init__(self, *, timeout=180):
         super().__init__(timeout=timeout)
+
     userInput = ui.TextInput(label='Collection Slug')
 
     async def on_submit(self, interaction: discord.Interaction):
@@ -77,12 +81,31 @@ class InterCog(commands.Cog):
     @app_commands.command(name="profile", description="Show up your profile")
     @app_commands.guilds(discord.Object(777145173574418462))
     async def profile(self, interaction: discord.Interaction):
+        connection = create_session()
+        member = connection.query(Member).where(Member.id == interaction.user.id).first()
+        connection.close()
+
+        join_time = interaction.user.joined_at.strftime("%a, %b %d, %Y @ %I:%M %p")
         emb = discord.Embed(colour=COLOUR)
-        emb.add_field(name='Coins           ⠀', value='**500**', inline=True)
-        emb.add_field(name='Reputation      ⠀', value='25', inline=True)
-        emb.add_field(name='Information     ⠀', value='Level: 34\nJoined: 29.10.24', inline=True)
+        emb.add_field(name='Coins           ⠀', value=f'**{member.coins}**', inline=True)
+        emb.add_field(name='Reputation      ⠀', value=f'{member.reputation}', inline=True)
+        emb.add_field(name='Information     ⠀', value=f'Level: 34\n{join_time}', inline=True)
         emb.set_author(name=interaction.user, icon_url=interaction.user.avatar)
-        await interaction.response.send_message(embed=emb, view=profileView(interaction))
+        await interaction.response.send_message(embed=emb, view=profileView(interaction, member))
+
+    @app_commands.command(name='bonus', description='Gives you 100 coins')
+    @app_commands.guilds(discord.Object(777145173574418462))
+    async def bonus(self, interaction: discord.Interaction):
+        connection = create_session()
+        mem = connection.query(Member).where(Member.id == interaction.user.id).first()
+        mem.coins += 100
+        connection.commit()
+        connection.close()
+
+        emb = discord.Embed(colour=COLOUR)
+        emb.add_field(name='Done', value='Gained **100** coins', inline=True)
+        emb.set_author(name=interaction.user, icon_url=interaction.user.avatar)
+        await interaction.response.send_message(embed=emb)
 
 
 async def setup(bot: commands.Bot):
