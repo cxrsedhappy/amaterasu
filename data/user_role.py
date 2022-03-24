@@ -21,7 +21,7 @@ class Member(SqlAlchemyBase, SerializerMixin):
     nickname = sqlalchemy.Column(sqlalchemy.String)
     coins = sqlalchemy.Column(sqlalchemy.Integer)
     reputation = sqlalchemy.Column(sqlalchemy.Integer)
-    duels = sqlalchemy.Column
+    duels = relationship('Duel', secondary=member_duel, backref='duels')
     roles = relationship('Role', secondary=member_role, backref='roles')
 
     def __repr__(self):
@@ -30,14 +30,14 @@ class Member(SqlAlchemyBase, SerializerMixin):
 
 class Duel(SqlAlchemyBase, SerializerMixin):
     __tablename__ = 'Duel'
-    id = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
+    id = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True, autoincrement=True)
     duelist_one = sqlalchemy.Column(sqlalchemy.String)
     duelist_two = sqlalchemy.Column(sqlalchemy.String)
     pay = sqlalchemy.Column(sqlalchemy.Integer)
     winner = sqlalchemy.Column(sqlalchemy.String)
 
     def __repr__(self):
-        return f'Member<{self.nickname}>'
+        return f'Duel<{self.winner}><{self.pay}>'
 
 
 class Role(SqlAlchemyBase, SerializerMixin):
