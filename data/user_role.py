@@ -35,6 +35,7 @@ class Duel(SqlAlchemyBase, SerializerMixin):
     duelist_two = sqlalchemy.Column(sqlalchemy.String)
     pay = sqlalchemy.Column(sqlalchemy.Integer)
     winner = sqlalchemy.Column(sqlalchemy.String)
+    timestamp = sqlalchemy.Column(sqlalchemy.DateTime)
 
     def __repr__(self):
         return f'Duel<{self.winner}><{self.pay}>'

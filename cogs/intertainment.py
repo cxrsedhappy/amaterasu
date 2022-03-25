@@ -1,6 +1,10 @@
 import discord
 
 from random import randint
+from datetime import datetime
+
+from discord.utils import get
+
 from data.db_session import create_session
 from data.user_role import Member, Duel
 from discord import app_commands, ui
@@ -10,101 +14,109 @@ COLOUR = 0x242424
 
 
 class profileView(ui.View):
-    def __init__(self, ctx: discord.Interaction, query):
+    def __init__(self, author: discord.Member, sql_member):
         super().__init__()
-        self.ctx = ctx
-        self.query = query
+        self.author = author
+        self.member = sql_member
 
     @discord.ui.button(label='General', style=discord.ButtonStyle.gray, custom_id='generalButton')
     async def general_button_callback(self, button: discord.ui.Button, interaction: discord.Interaction):
         emb = discord.Embed(colour=COLOUR)
         join_time = interaction.user.joined_at.strftime("%a, %b %d, %Y @ %I:%M %p")
-        emb.add_field(name='Coins           ⠀', value=f'**{self.query.coins}**', inline=True)
-        emb.add_field(name='Reputation      ⠀', value=f'{self.query.reputation}', inline=True)
-        emb.add_field(name='Information     ⠀', value=f'Level: 34\n{join_time}', inline=True)
-        emb.set_author(name=self.ctx.user, icon_url=self.ctx.user.avatar)
-        await interaction.response.edit_message(embed=emb)
+        emb.add_field(name='Coins           ⠀', value=f'**{self.member.coins}**', inline=True)
+        emb.add_field(name='Reputation      ⠀', value=f'{self.member.reputation}', inline=True)
+        emb.add_field(name='Information     ⠀', value=f'Level: No info\nJoined: {join_time}', inline=True)
+        emb.set_author(name=self.author.name, icon_url=self.author.avatar)
+        await interaction.response.edit_message(embed=emb, view=self)
 
     @discord.ui.button(label='Roles', style=discord.ButtonStyle.gray, custom_id='roleButton')
     async def roles_button_callback(self, button: discord.ui.Button, interaction: discord.Interaction):
         emb = discord.Embed(colour=COLOUR, description='All roles have limited time. \n'
                                                        'To update your role time use **/roleupdate**')
         emb.add_field(name='Current Roles', value='<@&943619597708443732>\n<@&943621521199468574>', inline=True)
-        emb.set_author(name=self.ctx.user, icon_url=self.ctx.user.avatar)
-        await interaction.response.edit_message(embed=emb)
+        emb.set_author(name=self.author.name, icon_url=self.author.avatar)
+        await interaction.response.edit_message(embed=emb, view=self)
 
-    @discord.ui.button(label='Duel History', style=discord.ButtonStyle.gray, custom_id='duelButton', disabled=True)
+    @discord.ui.button(label='Duel History', style=discord.ButtonStyle.gray, custom_id='duelButton')
     async def battles_button_callback(self, button: discord.ui.Button, interaction: discord.Interaction):
-        await interaction.response.send_message('heh')
+        emb = discord.Embed()
+
+        history = ""
+        duels = self.member.duels
+        low, high = get(self.author.guild.emojis, name="low"), get(self.author.guild.emojis, name="high")
+        for i in range(min(len(duels), 10) - 1, -1, -1):
+            won = True if int(self.author.id) == int(duels[i].winner) else False
+            history += f"{high if won else low} **{'Won' if won else 'Lose'}** — **{duels[i].pay}** {datetime.strftime(duels[i].timestamp, '%d.%m.%y')}\n "
+
+        # checks if emd.add_field(value) won't be empty
+        if history == '':
+            history += "you didn't duel someone"
+
+        emb.add_field(name='Last 10 duels', value=history)
+        await interaction.response.edit_message(embed=emb, view=self)
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if interaction.user != self.ctx.user:
-            return False
-        return True
+        if int(interaction.user.id) == int(self.author.id):
+            return True
+        return False
 
 
 class duelView(ui.View):
-    def __init__(self, ctx: discord.Interaction, enemy: discord.Member, coins: int):
+    def __init__(self, author: discord.User, enemy: discord.Member, coins: int, f_duelist, s_duelist, con):
         super().__init__()
-        self.ctx = ctx
+        self.author = author
         self.enemy = enemy
         self.coins = coins
+        self.f_duelist = f_duelist
+        self.s_duelist = s_duelist
+        self.con = con
 
     @discord.ui.button(label='✔', style=discord.ButtonStyle.green, custom_id='agreeButton')
-    async def agreeButton_callback(self, button: discord.Button, interaction: discord.Interaction):
-        """
-        TODO:
-        Relocate coin checker to /duel command  Done: -
-        Add check from self dueling             Done: -
-        Add mention to embeds                   Done: -
-        """
-
-        """
-        This callback send 2 requests to Database
-        """
-        connection = create_session()
-        f_duelist = connection.query(Member).where(Member.id == self.ctx.user.id).first()
-        s_duelist = connection.query(Member).where(Member.id == self.enemy.id).first()
-
+    async def agree_button_callback(self, button: discord.Button, interaction: discord.Interaction):
+        await self.interaction_check(interaction)
         emb = discord.Embed()
-        emb.set_author(name=interaction.user, icon_url=interaction.user.avatar)
-        if f_duelist.coins < self.coins or s_duelist.coins < self.coins:
+        emb.set_author(name=self.author.name, icon_url=self.author.avatar)
+
+        if self.f_duelist.coins < self.coins or self.s_duelist.coins < self.coins:
             emb.description = f"One of you don't have **{self.coins}** to duel"
             await interaction.response.send_message(embed=emb)
-            return
 
         duel = Duel()
-        duel.duelist_one = interaction.user.id
+        duel.duelist_one = self.author.id
         duel.duelist_two = self.enemy.id
         duel.pay = self.coins
+        duel.timestamp = datetime.today().replace(microsecond=0)
 
         if randint(1, 100) > 50:
-            duel.winner = interaction.user.id
-            f_duelist.coins += self.coins
-            f_duelist.duels.append(duel)
-            s_duelist.coins -= self.coins
-            s_duelist.duels.append(duel)
+            duel.winner = self.author.id
+            self.f_duelist.coins += self.coins
+            self.s_duelist.coins -= self.coins
+            self.f_duelist.duels.append(duel)
+            self.s_duelist.duels.append(duel)
         else:
             duel.winner = self.enemy.id
-            f_duelist.coins -= self.coins
-            f_duelist.duels.append(duel)
-            s_duelist.coins += self.coins
-            s_duelist.duels.append(duel)
+            self.f_duelist.coins -= self.coins
+            self.s_duelist.coins += self.coins
+            self.f_duelist.duels.append(duel)
+            self.s_duelist.duels.append(duel)
 
         emb.description = f'<@{duel.winner}> won and earn **{self.coins} coins!**'
-        connection.commit()
-        connection.close()
+        self.con.commit()
         await interaction.response.edit_message(embed=emb, view=None)
+        self.stop()
 
     @discord.ui.button(label='✖', style=discord.ButtonStyle.danger, custom_id='refuseButton')
-    async def refuseButton_callback(self, button: discord.Button, interaction: discord.Interaction):
-        emb = discord.Embed(description=f"{self.ctx.user.mention} your enemy refused duel!")
+    async def refuse_button_callback(self, button: discord.Button, interaction: discord.Interaction):
+        emb = discord.Embed(description=f"<@{self.author.id}> your enemy refused duel!")
         await interaction.response.edit_message(embed=emb, view=None)
+        self.stop()
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if interaction.user.id != self.enemy.id:
-            return False
-        return True
+        print(interaction.user)
+        print(self.author)
+        if int(interaction.user.id) == int(self.enemy.id):
+            return True
+        return False
 
 
 class InterCog(commands.Cog):
@@ -118,16 +130,18 @@ class InterCog(commands.Cog):
     @app_commands.guilds(discord.Object(777145173574418462))
     async def profile(self, interaction: discord.Interaction):
         connection = create_session()
-        member = connection.query(Member).where(Member.id == interaction.user.id).first()
-        connection.close()
+        sql_member = connection.query(Member).where(Member.id == interaction.user.id).first()
 
         join_time = interaction.user.joined_at.strftime("%b %d, %Y @ %I:%M %p")
         emb = discord.Embed(colour=COLOUR)
-        emb.add_field(name='Coins           ⠀', value=f'**{member.coins}**', inline=True)
-        emb.add_field(name='Reputation      ⠀', value=f'{member.reputation}', inline=True)
+        emb.add_field(name='Coins           ⠀', value=f'**{sql_member.coins}**', inline=True)
+        emb.add_field(name='Reputation      ⠀', value=f'{sql_member.reputation}', inline=True)
         emb.add_field(name='Information     ⠀', value=f'Level: No info\nJoin time: {join_time}', inline=True)
         emb.set_author(name=interaction.user, icon_url=interaction.user.avatar)
-        await interaction.response.send_message(embed=emb, view=profileView(interaction, member))
+
+        profile = profileView(interaction.user, sql_member)
+
+        await interaction.response.send_message(embed=emb, view=profile)
 
     @app_commands.command(name='bonus', description='Gives you 100 coins')
     @app_commands.guilds(discord.Object(777145173574418462))
@@ -137,18 +151,37 @@ class InterCog(commands.Cog):
         mem.coins += 100
         connection.commit()
         connection.close()
-
         emb = discord.Embed(colour=COLOUR)
         emb.add_field(name='Done', value='Gained **100** coins', inline=True)
-        emb.set_author(name=interaction.user, icon_url=interaction.user.avatar)
         await interaction.response.send_message(embed=emb)
 
     @app_commands.command(name='duel', description='Invite your enemy to a duel')
     @app_commands.guilds(discord.Object(777145173574418462))
     async def duel(self, interaction: discord.Interaction, enemy: discord.Member, coins: int):
-        emb = discord.Embed(description=f'{enemy.mention} was invited to duel! Do you accept?')
+        emb = discord.Embed()
         emb.set_author(name=interaction.user, icon_url=interaction.user.avatar)
-        await interaction.response.send_message(embed=emb, view=duelView(interaction, enemy, coins))
+
+        connection = create_session()
+        f_duelist = connection.query(Member).where(Member.id == interaction.user.id).first()
+        s_duelist = connection.query(Member).where(Member.id == enemy.id).first()
+
+        # self dueling checker
+        if interaction.user.id == enemy.id:
+            emb.description = f'You can duel yourself'
+            await interaction.response.send_message(embed=emb, ephemeral=True)
+            return
+
+        # money checker
+        if f_duelist.coins < coins or s_duelist.coins < coins:
+            emb.description = f"One of you don't have **{coins}** to duel"
+            await interaction.response.send_message(embed=emb, ephemeral=True)
+            return
+
+        emb.description = f"{enemy.mention}, someone wants to duel you.\nShall you?"
+        emb.add_field(name='Coins', value=f"**{coins}**")
+        await interaction.response.send_message(embed=emb,
+                                                view=duelView(interaction.user, enemy, coins, f_duelist, s_duelist,
+                                                              connection))
 
 
 async def setup(bot: commands.Bot):
