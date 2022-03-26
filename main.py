@@ -2,7 +2,7 @@ import os
 import asyncio
 import discord
 from data.db_session import create_session, global_init
-from data.user_role import Member
+from data.user_role import Member, Role
 from discord.ext import commands
 
 
@@ -27,16 +27,29 @@ class Client(commands.Bot):
             if guild.name == 'Happy Test Bot':
                 for member in guild.members:
                     if not member.bot:
-                        query = connection.query(Member).where(Member.id == member.id).first()
-                        if query is None:
+                        sql_member = connection.query(Member).where(Member.id == member.id).first()
+                        if sql_member is None:
                             mem = Member()
                             mem.id = member.id
                             mem.nickname = member.name
                             mem.coins = 0
                             mem.reputation = 0
                             connection.add(mem)
-                            connection.commit()
 
+                        for role in member.roles:
+                            sql_role = connection.query(Role).where(Role.id == role.id).first()
+                            if sql_role is None and role.name != '@everyone':
+                                r = Role()
+                                r.id = role.id
+                                r.name = role.name
+                                r.colour = role.colour.value
+                                r.owner = member.id
+                                r.multiplier = 1.0
+                                r.white_listed = True
+                                r.expired_at = None
+                                sql_member.roles.append(r)
+                                connection.add(r)
+        connection.commit()
         connection.close()
         await self.tree.sync(guild=discord.Object(SERVER_ID))
         print('Connected and synced')

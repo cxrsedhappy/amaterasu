@@ -47,7 +47,9 @@ class Role(SqlAlchemyBase, SerializerMixin):
     name = sqlalchemy.Column(sqlalchemy.String)
     colour = sqlalchemy.Column(sqlalchemy.String)
     owner = sqlalchemy.Column(sqlalchemy.Integer)
-    expired_at = sqlalchemy.Column(sqlalchemy.DateTime(timezone=True))
+    white_listed = sqlalchemy.Column(sqlalchemy.Boolean)
+    multiplier = sqlalchemy.Column(sqlalchemy.Float)
+    expired_at = sqlalchemy.Column(sqlalchemy.DateTime(timezone=True), nullable=True)
 
     def __repr__(self):
         return f'Role<{self.name}>'
