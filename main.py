@@ -28,13 +28,16 @@ class Client(commands.Bot):
                 for member in guild.members:
                     if not member.bot:
                         sql_member = connection.query(Member).where(Member.id == member.id).first()
+                        print(sql_member)
                         if sql_member is None:
                             mem = Member()
                             mem.id = member.id
                             mem.nickname = member.name
                             mem.coins = 0
                             mem.reputation = 0
+                            mem.profile_is_private = False
                             connection.add(mem)
+                            sql_member = mem
 
                         for role in member.roles:
                             sql_role = connection.query(Role).where(Role.id == role.id).first()
@@ -45,6 +48,7 @@ class Client(commands.Bot):
                                 r.colour = role.colour.value
                                 r.owner = member.id
                                 r.multiplier = 1.0
+                                r.enabled = True
                                 r.white_listed = True
                                 r.expired_at = None
                                 sql_member.roles.append(r)

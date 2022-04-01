@@ -21,6 +21,7 @@ class Member(SqlAlchemyBase, SerializerMixin):
     nickname = sqlalchemy.Column(sqlalchemy.String)
     coins = sqlalchemy.Column(sqlalchemy.Integer)
     reputation = sqlalchemy.Column(sqlalchemy.Integer)
+    profile_is_private = sqlalchemy.Column(sqlalchemy.Boolean)
     duels = relationship('Duel', secondary=member_duel, backref='duels')
     roles = relationship('Role', secondary=member_role, backref='roles')
 
@@ -49,6 +50,7 @@ class Role(SqlAlchemyBase, SerializerMixin):
     owner = sqlalchemy.Column(sqlalchemy.Integer)
     white_listed = sqlalchemy.Column(sqlalchemy.Boolean)
     multiplier = sqlalchemy.Column(sqlalchemy.Float)
+    enabled = sqlalchemy.Column(sqlalchemy.Boolean)
     expired_at = sqlalchemy.Column(sqlalchemy.DateTime(timezone=True), nullable=True)
 
     def __repr__(self):

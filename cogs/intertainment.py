@@ -2,6 +2,8 @@ import discord
 import datetime
 
 from random import randint
+
+from sqlalchemy.orm import Session
 from discord import app_commands, ui
 from discord.ext import commands
 from discord.utils import get
@@ -11,6 +13,34 @@ from data.db_session import create_session
 
 COLOUR = 0x242424
 SERVER_ID = 777145173574418462
+
+
+class manageDropdown(ui.Select):
+    def __init__(self, con: Session, member_id: int):
+        super().__init__(placeholder='Choose your role', min_values=1, max_values=1)
+        self.member = con.query(Member).where(Member.id == member_id).first()
+        options = []
+        for role in self.member.roles:
+            options.append(discord.SelectOption(label=role.name, description=role.id))
+        self.options = options
+
+    async def callback(self, interaction: discord.Interaction):
+        emb = discord.Embed(colour=COLOUR)
+        emb.add_field(name='wp', value=f'you choose {self.values[0]}')
+        await interaction.response.edit_message(embed=emb)
+
+
+class manageView(ui.View):
+    def __init__(self, author: discord.Member, con: Session):
+        super().__init__()
+        self.author = author
+        self.con = con
+        self.add_item(manageDropdown(self.con, self.author.id))
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.author.id:
+            return False
+        return True
 
 
 class createView(ui.View):
@@ -182,10 +212,9 @@ class duelView(ui.View):
         self.s_duelist.duels.append(duel)
         self.con.commit()
 
-
         emb.description = f'<@{duel.winner}> won and earn **{self.coins} coins!**'
 
-        await interaction.response.edit_message(f"<@{duel.winner}>", embed=emb, view=None)
+        await interaction.response.edit_message(embed=emb, view=None)
         self.stop()
 
     @discord.ui.button(label='✖', style=discord.ButtonStyle.danger, custom_id='refuseButton')
@@ -213,7 +242,7 @@ class InterCog(commands.Cog):
     @app_commands.guilds(discord.Object(777145173574418462))
     async def profile(self, interaction: discord.Interaction):
         connection = create_session()
-        sql_member = connection.query(Member).where(Member.id == interaction.user.id).first()
+        sql_member: Member = connection.query(Member).where(Member.id == interaction.user.id).first()
 
         join_time = interaction.user.joined_at.strftime("%a, %b %d, %Y @ %I:%M %p")
         emb = discord.Embed(colour=COLOUR)
@@ -223,7 +252,9 @@ class InterCog(commands.Cog):
         emb.add_field(name='Information     ⠀', value=f'Level: Soon\nJoined: {join_time}', inline=True)
 
         profile = profileView(interaction.user, sql_member, connection)
-        await interaction.response.send_message(embed=emb, view=profile)
+        await interaction.response.send_message(embed=emb,
+                                                view=profile,
+                                                ephemeral=True if sql_member.profile_is_private else False)
 
     @app_commands.command(name='bonus', description='Gives you 100 coins')
     @app_commands.checks.cooldown(1, 7200, key=lambda i: (i.guild_id, i.user.id))
@@ -291,11 +322,24 @@ class InterCog(commands.Cog):
         create_view = createView(interaction.user, member, connection, name, hex_colour, self.bot)
         await interaction.response.send_message(embed=emb, view=create_view)
 
-    @roles.command(name='manage', description='Soon...')
+    @roles.command(name='manage', description='Enable or disable roles')
     async def role_manage(self, interaction: discord.Interaction):
-        emb = discord.Embed()
-        emb.add_field(name='manage', value='role manager')
-        await interaction.response.send_message(embed=emb)
+        connection = create_session()
+        member = connection.query(Member).where(Member.id == interaction.user.id).first()
+
+        value = ''
+        time = ''
+
+        for role in member.roles:
+            if role.white_listed is False:
+                time = discord.utils.format_dt(role.expired_at)
+            value += f'{":white_check_mark:" if role.enabled else ":x:"}<@&{role.id}>' \
+                     f'[{role.multiplier}x] - ' \
+                     f'{f"expire at {time}" if role.white_listed is False else f"No expiration date"} \n' \
+
+        emb = discord.Embed(colour=COLOUR)
+        emb.add_field(name=':file_folder: Your roles', value=value)
+        await interaction.response.send_message(embed=emb, view=manageView(interaction.user, connection))
 
     @roles.command(name='update', description='Soon...')
     async def role_update(self, interaction: discord.Interaction):
