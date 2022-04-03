@@ -7,7 +7,7 @@ from discord.ext import commands
 
 
 APP_ID = 802514382181236747
-SERVER_ID = 777145173574418462
+SERVER_ID = 894192291831504959
 
 intents = discord.Intents.all()
 
@@ -24,7 +24,7 @@ class Client(commands.Bot):
                 await client.load_extension(f'cogs.{fn[:-3]}')
 
         for guild in self.guilds:
-            if guild.name == 'Happy Test Bot':
+            if guild.name == 'Where are my pancakes':
                 for member in guild.members:
                     if not member.bot:
                         sql_member = connection.query(Member).where(Member.id == member.id).first()
@@ -55,7 +55,7 @@ class Client(commands.Bot):
                                 connection.add(r)
         connection.commit()
         connection.close()
-        await self.tree.sync(guild=discord.Object(SERVER_ID))
+        await self.tree.sync()
         print('Connected and synced')
 
 

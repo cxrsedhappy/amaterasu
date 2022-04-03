@@ -12,30 +12,68 @@ from data.db_session import create_session
 
 
 COLOUR = 0x242424
-SERVER_ID = 777145173574418462
+OWNER_SERVER_ID = 777145173574418462
+SERVER_ID = 894192291831504959
 
 
 class manageDropdown(ui.Select):
-    def __init__(self, con: Session, member_id: int):
+    def __init__(self, con: Session, member_id: int, bot: commands.Bot):
         super().__init__(placeholder='Choose your role', min_values=1, max_values=1)
         self.member = con.query(Member).where(Member.id == member_id).first()
+        self.con = con
+        self.roles = []
+        self.bot = bot
         options = []
-        for role in self.member.roles:
-            options.append(discord.SelectOption(label=role.name, description=role.id))
+        r = self.member.roles
+        for i in range(len(r)):
+            self.roles.append(r[i])
+            options.append(discord.SelectOption(label=r[i].name, description=r[i].id, value=f'{i}'))
         self.options = options
 
     async def callback(self, interaction: discord.Interaction):
+        role = self.member.roles[int(self.values[0])]
+        temp = self.bot.get_guild(SERVER_ID).get_role(role.id)
+        if role.enabled is True:
+            role.enabled = False
+            await self.bot.get_guild(SERVER_ID).get_member(interaction.user.id).remove_roles(temp)
+        else:
+            role.enabled = True
+            await self.bot.get_guild(SERVER_ID).get_member(interaction.user.id).add_roles(temp)
+
+        self.con.commit()
         emb = discord.Embed(colour=COLOUR)
-        emb.add_field(name='wp', value=f'you choose {self.values[0]}')
-        await interaction.response.edit_message(embed=emb)
+        emb.add_field(name='Done', value=f'{role.name} was {"enabled" if role.enabled is True else "disabled"}')
+        await interaction.response.send_message(embed=emb, ephemeral=True)
 
 
 class manageView(ui.View):
-    def __init__(self, author: discord.Member, con: Session):
+    def __init__(self, author: discord.Member, con: Session, bot: commands.Bot):
         super().__init__()
         self.author = author
         self.con = con
-        self.add_item(manageDropdown(self.con, self.author.id))
+        self.add_item(manageDropdown(self.con, self.author.id, bot))
+
+    def update_info(self):
+        mem = self.con.query(Member).where(Member.id == self.author.id).first()
+        time = ''
+        value = ''
+        for role in mem.roles:
+            if role.white_listed is False:
+                time = discord.utils.format_dt(role.expired_at)
+            value += f'{":white_check_mark:" if role.enabled else ":x:"}<@&{role.id}>' \
+                     f'[{role.multiplier}x] - ' \
+                     f'{f"expire at {time}" if role.white_listed is False else f"No expiration date"} \n'
+        emb = discord.Embed(colour=COLOUR)
+        emb.add_field(name=':file_folder: Your roles', value=value)
+        return emb
+
+    @discord.ui.button(label='Update', style=discord.ButtonStyle.blurple, custom_id='updateButton')
+    async def update_button_callback(self, interaction: discord.Interaction, button: discord.Button):
+        await interaction.response.edit_message(embed=self.update_info())
+
+    @discord.ui.button(label='Disable all', style=discord.ButtonStyle.blurple, custom_id='disableButton', disabled=True)
+    async def disable_button_callback(self, interaction: discord.Interaction, button: discord.Button):
+        pass
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.author.id:
@@ -139,7 +177,7 @@ class profileView(ui.View):
 
         await interaction.response.edit_message(embed=emb, view=self)
 
-    @discord.ui.button(label='Duel History', style=discord.ButtonStyle.gray, custom_id='duelButton')
+    @discord.ui.button(label='History', style=discord.ButtonStyle.gray, custom_id='duelButton')
     async def battles_button_callback(self, interaction: discord.Interaction, button: discord.Button):
         history = ''
         duels = self.member.duels
@@ -159,6 +197,13 @@ class profileView(ui.View):
         emb.add_field(name='Last 10 duels', value=history)
 
         await interaction.response.edit_message(embed=emb, view=self)
+
+    @discord.ui.button(label='Settings', style=discord.ButtonStyle.gray, custom_id='settingsButton', disabled=True)
+    async def settings_button_callback(self, interaction: discord.Interaction, button: discord.Button):
+        emb = discord.Embed(colour=COLOUR, title='Settings')
+        emb.add_field(name='Profile', value=f"{'**Private**' if self.member.profile_is_private else 'Public'}")
+        emb.set_footer(text='You will be able to toggle your profile settings soon...')
+        await interaction.response.edit_message(embed=emb)
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         """
@@ -230,7 +275,7 @@ class duelView(ui.View):
 
 
 class InterCog(commands.Cog):
-    roles = app_commands.Group(name='role', description='Roles commands', guild_ids=[777145173574418462])
+    roles = app_commands.Group(name='role', description='Roles commands', guild_ids=[SERVER_ID])
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -239,7 +284,7 @@ class InterCog(commands.Cog):
         print(f"Loaded {self.__cog_name__}")
 
     @app_commands.command(name="profile", description="Show up your profile")
-    @app_commands.guilds(discord.Object(777145173574418462))
+    @app_commands.guilds(discord.Object(SERVER_ID))
     async def profile(self, interaction: discord.Interaction):
         connection = create_session()
         sql_member: Member = connection.query(Member).where(Member.id == interaction.user.id).first()
@@ -258,7 +303,7 @@ class InterCog(commands.Cog):
 
     @app_commands.command(name='bonus', description='Gives you 100 coins')
     @app_commands.checks.cooldown(1, 7200, key=lambda i: (i.guild_id, i.user.id))
-    @app_commands.guilds(discord.Object(777145173574418462))
+    @app_commands.guilds(discord.Object(SERVER_ID))
     async def bonus(self, interaction: discord.Interaction):
         connection = create_session()
         mem = connection.query(Member).where(Member.id == interaction.user.id).first()
@@ -273,7 +318,7 @@ class InterCog(commands.Cog):
         await interaction.response.send_message(embed=emb)
 
     @app_commands.command(name='duel', description='Invite your enemy to a duel')
-    @app_commands.guilds(discord.Object(777145173574418462))
+    @app_commands.guilds(discord.Object(SERVER_ID))
     async def duel(self, interaction: discord.Interaction, enemy: discord.Member, coins: int):
         """
         TODO
@@ -339,7 +384,7 @@ class InterCog(commands.Cog):
 
         emb = discord.Embed(colour=COLOUR)
         emb.add_field(name=':file_folder: Your roles', value=value)
-        await interaction.response.send_message(embed=emb, view=manageView(interaction.user, connection))
+        await interaction.response.send_message(embed=emb, view=manageView(interaction.user, connection, self.bot))
 
     @roles.command(name='update', description='Soon...')
     async def role_update(self, interaction: discord.Interaction):
