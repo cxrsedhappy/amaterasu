@@ -7,24 +7,32 @@ from discord.ext import commands
 
 
 APP_ID = 802514382181236747
-SERVER_ID = 894192291831504959
+WHERE_IS_MY_PANCAKES = 894192291831504959
+HAPPY_TEST_BOT = 777145173574418462
+
+SERVER_ID = HAPPY_TEST_BOT
+GUILD = discord.Object(SERVER_ID)
 
 intents = discord.Intents.all()
 
 
 class Client(commands.Bot):
+    """
+    TODO
+    Add on_member_join event
+    """
     def __init__(self):
         super().__init__(command_prefix='!', intents=intents, application_id=APP_ID)
 
     async def on_ready(self):
-
         connection = create_session()
+
         for fn in os.listdir("./cogs"):
             if fn.endswith(".py"):
                 await client.load_extension(f'cogs.{fn[:-3]}')
 
         for guild in self.guilds:
-            if guild.name == 'Where are my pancakes':
+            if guild.id == SERVER_ID:
                 for member in guild.members:
                     if not member.bot:
                         sql_member = connection.query(Member).where(Member.id == member.id).first()
@@ -53,9 +61,10 @@ class Client(commands.Bot):
                                 r.expired_at = None
                                 sql_member.roles.append(r)
                                 connection.add(r)
+
         connection.commit()
         connection.close()
-        await self.tree.sync()
+        await self.tree.sync(guild=GUILD)
         print('Connected and synced')
 
 
