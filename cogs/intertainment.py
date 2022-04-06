@@ -21,7 +21,7 @@ GUILD = discord.Object(SERVER_ID)
 
 class manageDropdown(ui.Select):
     def __init__(self, con: Session, member_id: int, bot: commands.Bot):
-        super().__init__(placeholder='Choose your role', min_values=1, max_values=1)
+        super().__init__(placeholder='We trying to rework this command', min_values=1, max_values=3, disabled=True)
         self.member = con.query(Member).where(Member.id == member_id).first()
         self.con = con
         self.roles_to_show = []
@@ -35,6 +35,8 @@ class manageDropdown(ui.Select):
                                                      value=f'{i}'))
 
     async def callback(self, interaction: discord.Interaction):
+        for i in self.values:
+            print(i)
         role = self.member.roles[int(self.values[0])]
         discord_role = self.bot.get_guild(SERVER_ID).get_role(role.id)
 
@@ -54,6 +56,10 @@ class manageDropdown(ui.Select):
 
 
 class manageView(ui.View):
+    """
+    TODO
+    Rework role manage logic
+    """
     def __init__(self, author: discord.Member, con: Session, bot: commands.Bot):
         super().__init__()
         self.author = author
@@ -78,7 +84,7 @@ class manageView(ui.View):
         emb.add_field(name=':file_folder: Your roles', value=value_for_emb)
         return emb
 
-    @discord.ui.button(label='Update', style=discord.ButtonStyle.blurple, custom_id='updateButton')
+    @discord.ui.button(label='Update', style=discord.ButtonStyle.blurple, custom_id='updateButton', disabled=True)
     async def update_button_callback(self, interaction: discord.Interaction, button: discord.Button):
         await interaction.response.edit_message(embed=self.update_info())
 
@@ -277,6 +283,10 @@ class duelView(ui.View):
 
 
 class InterCog(commands.Cog):
+    """
+    TODO
+    Split roles command and other commands
+    """
     roles = app_commands.Group(name='role', description='Roles commands', guild_ids=[SERVER_ID])
 
     def __init__(self, bot: commands.Bot):
@@ -354,6 +364,10 @@ class InterCog(commands.Cog):
 
     @roles.command(name='create', description='Create your own role')
     async def role_create(self, interaction: discord.Interaction, name: str, colour: str):
+        """
+        TODO
+        Check colour for hex
+        """
         connection = create_session()
         member = connection.query(Member).where(Member.id == interaction.user.id).first()
 
@@ -385,7 +399,7 @@ class InterCog(commands.Cog):
                 expiration_time = discord.utils.format_dt(role.expired_at)
             value += f'{":white_check_mark:" if role.enabled else ":x:"}<@&{role.id}>' \
                      f'[{role.multiplier}x] - ' \
-                     f'{f"expire at {expiration_time}" if role.white_listed is False else f"No expiration date"} \n' \
+                     f'{f"expire at {expiration_time}" if role.white_listed is False else "No expiration date"} \n' \
 
         emb = discord.Embed(colour=COLOUR)
         emb.add_field(name=':file_folder: Your roles', value=value)
