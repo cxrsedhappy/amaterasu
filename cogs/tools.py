@@ -19,9 +19,9 @@ class ToolsCog(commands.Cog):
 
     @app_commands.command(name='yt', description='Search videos on Youtube')
     @app_commands.guilds(GUILD)
-    async def youtube(self, interaction: discord.Interaction):
+    async def youtube(self, interaction: discord.Interaction, query: str):
         emb = discord.Embed(colour=COLOUR)
-        emb.add_field(name='Youtube', value='Youtube commands')
+        emb.add_field(name='Youtube', value=f'asd')
         await interaction.response.send_message(embed=emb)
 
     @app_commands.command(name='g', description='Search on Google')
