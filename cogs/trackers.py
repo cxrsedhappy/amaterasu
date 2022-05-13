@@ -13,6 +13,8 @@ GUILD = discord.Object(SERVER_ID)
 
 
 class TrackerCog(commands.Cog):
+    track = app_commands.Group(name='tracker', description='Tracker commands', guild_ids=[SERVER_ID])
+
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.apex_api = API(api_key='QFMbvc2VXPKUs3MdH7EW')
@@ -20,8 +22,7 @@ class TrackerCog(commands.Cog):
     async def cog_load(self):
         print(f"Loaded {self.__cog_name__}")
 
-    @app_commands.command(name='apex', description='Shows your Apex stats')
-    @app_commands.guilds(GUILD)
+    @track.command(name='apex', description='Shows your Apex stats')
     @app_commands.choices(platforms=[
         Choice(name='PC', value='PC'),
         Choice(name='PSN', value='PSN'),
@@ -60,8 +61,7 @@ class TrackerCog(commands.Cog):
         emb.set_thumbnail(url=main.mm_rankImg)
         await interaction.followup.send(embed=emb)
 
-    @app_commands.command(name='valorant', description='Shows your Valorant stats')
-    @app_commands.guilds(GUILD)
+    @track.command(name='valorant', description='Shows your Valorant stats')
     async def google(self, interaction: discord.Interaction):
         emb = discord.Embed(colour=COLOUR)
         emb.add_field(name='Valorant', value='Valorant tracker command')

@@ -35,11 +35,11 @@ class API:
     def __init__(self, api_key: str):
         self.api_key = api_key
 
-    def _make_request(self, params):
+    def make_request(self, params):
         return requests.get(url='https://api.mozambiquehe.re/bridge?version=5', params=params).json()
 
     def get_player(self, name: str, platform: str):
-        req = self._make_request(params={'platform': platform, 'player': name, 'auth': self.api_key})
+        req = self.make_request(params={'platform': platform, 'player': name, 'auth': self.api_key})
         try:
             temp = req['global']
         except KeyError or AttributeError:

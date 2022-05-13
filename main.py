@@ -7,11 +7,18 @@ from discord.ext import commands
 
 
 APP_ID = 802514382181236747
+
 WHERE_IS_MY_PANCAKES = 894192291831504959
 HAPPY_TEST_BOT = 777145173574418462
 
+# Boties
+QQ = 802276078064238662
+DEP = 969165372966199336
+BOT = 802271250445369375
+
 SERVER_ID = HAPPY_TEST_BOT
 GUILD = discord.Object(SERVER_ID)
+
 
 intents = discord.Intents.all()
 
@@ -31,10 +38,12 @@ class Client(commands.Bot):
             if fn.endswith(".py"):
                 await client.load_extension(f'cogs.{fn[:-3]}')
 
+        # When bot is ready then
         for guild in self.guilds:
-            if guild.id == SERVER_ID:
+            if guild.id == SERVER_ID:  # Check for the guild
                 for member in guild.members:
-                    if not member.bot:
+                    if not member.bot:  # If member is not bot
+                        # Check if user is already exist
                         sql_member = connection.query(Member).where(Member.id == member.id).first()
                         print(sql_member)
                         if sql_member is None:
@@ -44,10 +53,12 @@ class Client(commands.Bot):
                             mem.coins = 0
                             mem.reputation = 0
                             mem.profile_is_private = False
+
                             connection.add(mem)
                             sql_member = mem
 
                         for role in member.roles:
+                            # Update roles for this user
                             sql_role = connection.query(Role).where(Role.id == role.id).first()
                             if sql_role is None and role.name != '@everyone':
                                 r = Role()
