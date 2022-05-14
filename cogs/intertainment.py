@@ -1,28 +1,29 @@
 import discord
-import datetime
 
-from random import randint
-
-from sqlalchemy.orm import Session
-from discord import app_commands, ui
+from discord import app_commands
 from discord.ext import commands
-from discord.utils import get
 
 from views.manage import manageView
 from views.profile import profileView
 from views.duel import duelView
 from views.create import createView
 
-from data.user_role import Member, Duel, Role
+from data.user_role import Member
 from data.db_session import create_session
 
 
 COLOUR = 0x242424
+
+LONELY_SERVER = 802271249966563338
 WHERE_IS_MY_PANCAKES = 894192291831504959
 HAPPY_TEST_BOT = 777145173574418462
 
-SERVER_ID = HAPPY_TEST_BOT
+SERVER_ID = LONELY_SERVER
 GUILD = discord.Object(SERVER_ID)
+
+# Debug lines
+# @app_commands.guilds(GUILD)
+# guild_ids=[SERVER_ID]
 
 
 class InterCog(commands.Cog):
@@ -30,7 +31,7 @@ class InterCog(commands.Cog):
     TODO
     Split roles command and other commands
     """
-    roles = app_commands.Group(name='role', description='Roles commands', guild_ids=[SERVER_ID])
+    roles = app_commands.Group(name='role', description='Roles commands')
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -39,7 +40,6 @@ class InterCog(commands.Cog):
         print(f"Loaded {self.__cog_name__}")
 
     @app_commands.command(name="profile", description="Show up your profile")
-    @app_commands.guilds(GUILD)
     async def profile(self, interaction: discord.Interaction):
         connection = create_session()
         sql_member: Member = connection.query(Member).where(Member.id == interaction.user.id).first()
@@ -51,14 +51,13 @@ class InterCog(commands.Cog):
         emb.add_field(name='Reputation      ⠀', value=f'{sql_member.reputation}', inline=True)
         emb.add_field(name='Information     ⠀', value=f'Level: Soon\nJoined: {join_time}', inline=True)
 
-        profile_view = profileView(interaction.user, sql_member, connection)
+        profile_view = profileView(interaction.user, sql_member)
         await interaction.response.send_message(embed=emb,
                                                 view=profile_view,
                                                 ephemeral=True if sql_member.profile_is_private else False)
 
     @app_commands.command(name='bonus', description='Gives you 100 coins')
     @app_commands.checks.cooldown(1, 7200, key=lambda i: (i.guild_id, i.user.id))
-    @app_commands.guilds(GUILD)
     async def bonus(self, interaction: discord.Interaction):
         connection = create_session()
         mem = connection.query(Member).where(Member.id == interaction.user.id).first()
@@ -73,7 +72,6 @@ class InterCog(commands.Cog):
         await interaction.response.send_message(embed=emb)
 
     @app_commands.command(name='duel', description='Invite your enemy to a duel')
-    @app_commands.guilds(GUILD)
     async def duel(self, interaction: discord.Interaction, enemy: discord.Member, coins: int):
         """
         TODO
@@ -123,8 +121,8 @@ class InterCog(commands.Cog):
             await interaction.response.send_message(embed=emb)
             return
 
-        emb.title = 'New role'
-        emb.description = 'New role information'
+        # emb.title = 'New role'
+        # emb.description = 'New role information'
         emb.add_field(name='Costs', value='**20000**')
 
         create_view = createView(interaction.user, member, connection, name, hex_colour, self.bot)
@@ -150,25 +148,25 @@ class InterCog(commands.Cog):
         emb.add_field(name=':file_folder: Your roles', value=value)
         await interaction.response.send_message(embed=emb, view=manageView(interaction.user, connection, self.bot))
 
-    @roles.command(name='update', description='Soon...')
-    async def role_update(self, interaction: discord.Interaction):
-        emb = discord.Embed()
-        emb.add_field(name='update', value='role updater')
-        await interaction.response.send_message(embed=emb)
+    # @roles.command(name='update', description='Soon...')
+    # async def role_update(self, interaction: discord.Interaction):
+    #     emb = discord.Embed()
+    #     emb.add_field(name='update', value='role updater')
+    #     await interaction.response.send_message(embed=emb)
 
-    @roles.command(name='gift', description='Soon...')
-    @app_commands.checks.has_permissions(administrator=True)
-    async def role_gift(self, interaction: discord.Interaction):
-        emb = discord.Embed()
-        emb.add_field(name='gift', value='role gifted')
-        await interaction.response.send_message(embed=emb)
+    # @roles.command(name='gift', description='Soon...')
+    # @app_commands.checks.has_permissions(administrator=True)
+    # async def role_gift(self, interaction: discord.Interaction):
+    #     emb = discord.Embed()
+    #     emb.add_field(name='gift', value='role gifted')
+    #     await interaction.response.send_message(embed=emb)
 
-    @role_gift.error
-    async def role_gift_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
-        if isinstance(error, app_commands.MissingPermissions):
-            emb = discord.Embed(colour=COLOUR)
-            emb.add_field(name='Something wrong', value=f"It looks like you ain't admin")
-            await interaction.response.send_message(embed=emb, ephemeral=True)
+    # @role_gift.error
+    # async def role_gift_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
+    #     if isinstance(error, app_commands.MissingPermissions):
+    #         emb = discord.Embed(colour=COLOUR)
+    #         emb.add_field(name='Something wrong', value=f"It looks like you ain't admin")
+    #         await interaction.response.send_message(embed=emb, ephemeral=True)
 
     @bonus.error
     async def bonus_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):

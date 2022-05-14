@@ -56,7 +56,7 @@ class manageView(ui.View):
         super().__init__()
         self.author = author
         self.con = con
-        self.add_item(manageDropdown(self.con, self.author.id, bot))
+        # self.add_item(manageDropdown(self.con, self.author.id, bot))
 
     def update_info(self):
         mem = self.con.query(Member).where(Member.id == self.author.id).first()
@@ -76,13 +76,14 @@ class manageView(ui.View):
         emb.add_field(name=':file_folder: Your roles', value=value_for_emb)
         return emb
 
-    @discord.ui.button(label='Update', style=discord.ButtonStyle.blurple, custom_id='updateButton', disabled=True)
-    async def update_button_callback(self, interaction: discord.Interaction, button: discord.Button):
-        await interaction.response.edit_message(embed=self.update_info())
+    # @discord.ui.button(label='Update', style=discord.ButtonStyle.blurple, custom_id='updateButton', disabled=True)
+    # async def update_button_callback(self, interaction: discord.Interaction, button: discord.Button):
+    #     await interaction.response.edit_message(embed=self.update_info())
 
-    @discord.ui.button(label='Disable all', style=discord.ButtonStyle.blurple, custom_id='disableButton', disabled=True)
-    async def disable_button_callback(self, interaction: discord.Interaction, button: discord.Button):
-        pass
+    # @discord.ui.button(label='Disable all', style=discord.ButtonStyle.blurple, custom_id='disableButton',
+    #                    disabled=True)
+    # async def disable_button_callback(self, interaction: discord.Interaction, button: discord.Button):
+    #     pass
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.author.id:
